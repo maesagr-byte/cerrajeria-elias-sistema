@@ -13,12 +13,31 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# ==============================================================================
+# CUADRO 1: MEMORIA GLOBAL DE VISITAS Y CLIENTES
+# ==============================================================================
+@st.cache_resource
+def obtener_registro_global():
+    return {"visitas": 140, "clientes": []}
+
+registro_app = obtener_registro_global()
+
+if "visita_contada" not in st.session_state:
+    registro_app["visitas"] += 1
+    st.session_state.visita_contada = True
+    st.session_state.hora_entrada = datetime.now().strftime("%d/%m/%Y %I:%M %p")
+
 st.markdown("""
 <style>
     /* Fondo general y tipografía moderna */
     .stApp {
         background: radial-gradient(circle at top right, #111927 0%, #0B0F19 60%, #070A10 100%);
         color: #F3F4F6;
+    }
+    /* Animación suave para tarjetas y recibo */
+    @keyframes aparecerSuave {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
     }
     /* Encabezado Hero Futurista */
     .hero-banner {
@@ -28,6 +47,7 @@ st.markdown("""
         padding: 26px 30px;
         margin-bottom: 24px;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        animation: aparecerSuave 0.4s ease-out;
     }
     .hero-title {
         font-size: 34px;
@@ -64,6 +84,7 @@ st.markdown("""
         font-size: 12px;
         font-weight: 600;
         margin-right: 8px;
+        margin-bottom: 6px;
     }
     /* Tarjetas Glassmorphism */
     .glass-card {
@@ -73,6 +94,7 @@ st.markdown("""
         padding: 20px;
         margin-bottom: 16px;
         box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+        animation: aparecerSuave 0.35s ease-out;
     }
     /* Recibo Desglosado */
     .receipt-box {
@@ -81,6 +103,7 @@ st.markdown("""
         border-radius: 16px;
         padding: 22px;
         box-shadow: 0 12px 32px rgba(249, 115, 22, 0.18);
+        animation: aparecerSuave 0.4s ease-out;
     }
     .receipt-header {
         border-bottom: 1px dashed #64748B;
@@ -90,6 +113,7 @@ st.markdown("""
     .receipt-line {
         display: flex;
         justify-content: space-between;
+        gap: 10px;
         padding: 7px 0;
         border-bottom: 1px solid rgba(100, 116, 139, 0.2);
         font-size: 14.5px;
@@ -142,6 +166,40 @@ st.markdown("""
         color: white !important;
         text-decoration: none;
         margin-bottom: 8px;
+    }
+    /* SOLUCIÓN MÓVIL: Evitar que se corten las letras y años en los Selectbox y Radio en teléfonos */
+    div[data-baseweb="select"] > div {
+        min-height: 48px !important;
+        height: auto !important;
+        padding-top: 4px !important;
+        padding-bottom: 4px !important;
+    }
+    div[data-baseweb="select"] span,
+    div[data-baseweb="select"] div {
+        white-space: normal !important;
+        overflow: visible !important;
+        text-overflow: unset !important;
+        line-height: 1.35 !important;
+    }
+    ul[data-baseweb="menu"] li,
+    div[role="listbox"] div[role="option"] {
+        white-space: normal !important;
+        word-wrap: break-word !important;
+        line-height: 1.35 !important;
+        padding-top: 8px !important;
+        padding-bottom: 8px !important;
+        height: auto !important;
+    }
+    div[role="radiogroup"] label {
+        white-space: normal !important;
+        line-height: 1.35 !important;
+        margin-bottom: 6px !important;
+    }
+    @media (max-width: 768px) {
+        .hero-title { font-size: 25px !important; }
+        .hero-subtitle { font-size: 14px !important; }
+        .hero-banner { padding: 18px !important; }
+        .receipt-total { font-size: 18px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -369,64 +427,67 @@ CATALOGO_VEHICULOS = {
 }
 
 # ==============================================================================
-# 3. MUNICIPIOS DE ORIENTE (PUNTO DE PARTIDA: SAN LUIS JILOTEPEQUE, JALAPA)
-#    Nota interna: El sistema multiplica internamente x 2 (Ida y Vuelta) sin mostrarlo al cliente.
+# 3. MUNICIPIOS DE ORIENTE (KILÓMETROS IDA Y VUELTA DESDE SAN LUIS JILOTEPEQUE)
+#    Nota interna: Ya están puestos al DOBLE (Ida y Vuelta) en la lista.
+#    Si quieres ajustar el cobro general, cambia MULTIPLICADOR_COMBUSTIBLE.
 # ==============================================================================
+MULTIPLICADOR_COMBUSTIBLE = 1.0  # Con 1.0 cobra exacto el Ida y Vuelta de abajo; con 2.0 cobra el doble
+
 DISTANCIAS_KM_ORIENTE = {
     "Jalapa": {
         "San Luis Jilotepeque (Sede Central - Casco Urbano)": 0,
-        "San Pedro Pinula": 20,
-        "San Manuel Chaparrón": 22,
-        "Monjas": 38,
-        "Jalapa (Cabecera)": 42,
-        "San Carlos Alzatate": 62,
-        "Mataquescuintla": 80
+        "San Pedro Pinula": 40,
+        "San Manuel Chaparrón": 44,
+        "Monjas": 76,
+        "Jalapa (Cabecera)": 84,
+        "San Carlos Alzatate": 124,
+        "Mataquescuintla": 160
     },
     "Chiquimula": {
-        "Ipala": 18,
-        "Quezaltepeque": 34,
-        "San Jacinto": 36,
-        "San José La Arada": 38,
-        "Chiquimula (Cabecera)": 44,
-        "San Esteban": 48,
-        "San Juan Ermita": 52,
-        "Concepción Las Minas": 54,
-        "Jocotán": 60,
-        "Camotán": 62,
-        "Esquipulas": 64,
-        "Olopa": 68
+        "Ipala": 36,
+        "Quezaltepeque": 68,
+        "San Jacinto": 72,
+        "San José La Arada": 76,
+        "Chiquimula (Cabecera)": 88,
+        "San Esteban": 96,
+        "San Juan Ermita": 104,
+        "Concepción Las Minas": 108,
+        "Jocotán": 120,
+        "Camotán": 124,
+        "Esquipulas": 128,
+        "Olopa": 136
     },
     "Jutiapa": {
-        "Agua Blanca": 28,
-        "Santa Catarina Mita": 38,
-        "El Progreso": 50,
-        "Asunción Mita": 54,
-        "Jutiapa (Cabecera)": 64,
-        "Atescatempa": 72,
-        "Yupiltepeque": 76,
-        "Zapotitlán": 80,
-        "El Adelanto": 82,
-        "Quesada": 82,
-        "Jerez": 85,
-        "San José Acatempa": 92,
-        "Comapa": 96,
-        "Jalpatagua": 100,
-        "Conguaco": 110,
-        "Moyuta": 115,
-        "Pasaco": 130
+        "Agua Blanca": 56,
+        "Santa Catarina Mita": 76,
+        "El Progreso": 100,
+        "Asunción Mita": 108,
+        "Jutiapa (Cabecera)": 128,
+        "Atescatempa": 144,
+        "Yupiltepeque": 152,
+        "Zapotitlán": 160,
+        "El Adelanto": 164,
+        "Quesada": 164,
+        "Jerez": 170,
+        "San José Acatempa": 184,
+        "Comapa": 192,
+        "Jalpatagua": 200,
+        "Conguaco": 220,
+        "Moyuta": 230,
+        "Pasaco": 260
     },
     "Zacapa": {
-        "Estanzuela": 62,
-        "Zacapa (Cabecera)": 68,
-        "San Jorge": 72,
-        "Río Hondo": 74,
-        "Huité": 78,
-        "Cabañas": 82,
-        "Teculután": 84,
-        "Usumatlán": 88,
-        "San Diego": 90,
-        "Gualán": 102,
-        "La Unión": 108
+        "Estanzuela": 124,
+        "Zacapa (Cabecera)": 136,
+        "San Jorge": 144,
+        "Río Hondo": 148,
+        "Huité": 156,
+        "Cabañas": 164,
+        "Teculután": 168,
+        "Usumatlán": 176,
+        "San Diego": 180,
+        "Gualán": 204,
+        "La Unión": 216
     }
 }
 
@@ -511,6 +572,46 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# ==============================================================================
+# CUADRO 2: BIENVENIDA CON NOMBRE / ALIAS Y CONTADOR DE VISITAS
+# ==============================================================================
+if "alias_usuario" not in st.session_state:
+    st.session_state.alias_usuario = ""
+
+if st.session_state.alias_usuario == "":
+    st.markdown('<div class="glass-card" style="max-width:540px; margin:auto; text-align:center;">', unsafe_allow_html=True)
+    st.markdown("### 👋 ¡Bienvenido a Cerrajería Automotriz Elías!")
+    st.write("Escribe tu **Nombre o Alias** para ingresar al Cotizador y Catálogo en línea:")
+    alias_input = st.text_input("Tu Nombre o Alias:", max_chars=30, placeholder="Ej. Carlos / Taller El Progreso")
+    col_b1, col_b2 = st.columns(2)
+    with col_b1:
+        if st.button("🚀 Entrar al Cotizador", type="primary", use_container_width=True):
+            if alias_input.strip() != "":
+                st.session_state.alias_usuario = alias_input.strip()
+                registro_app["clientes"].append({
+                    "Fecha y Hora": st.session_state.hora_entrada,
+                    "Nombre / Alias": st.session_state.alias_usuario,
+                    "Teléfono": "En cotización",
+                    "Vehículo / Consulta": "Ingresó al sistema"
+                })
+                st.rerun()
+            else:
+                st.warning("Escribe un nombre o alias corto, o toca 'Entrar como Invitado'.")
+    with col_b2:
+        if st.button("👀 Entrar como Invitado", use_container_width=True):
+            st.session_state.alias_usuario = "Invitado"
+            registro_app["clientes"].append({
+                "Fecha y Hora": st.session_state.hora_entrada,
+                "Nombre / Alias": "Invitado",
+                "Teléfono": "En cotización",
+                "Vehículo / Consulta": "Ingresó al sistema"
+            })
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+else:
+    st.caption(f"👤 Conectado como: **{st.session_state.alias_usuario}** | 🔥 Visitas en línea: **{registro_app['visitas']}**")
+
 with st.sidebar:
     st.markdown("### 🌐 Nuestras Redes Oficiales")
     st.caption("Síguenos, califícanos y escríbenos directo:")
@@ -573,7 +674,6 @@ with tab_cotizador:
 
         # --- LÓGICA A: CARROS / PICK-UPS / CAMIONETAS ---
         if tipo_bien == "🚗 Carro / Pick-up / Camioneta":
-            # Proporción amplia para que los modelos y los AÑOS se vean completos sin cortarse
             c1, c2 = st.columns([0.9, 2.3])
             with c1:
                 marca_sel = st.selectbox("Marca:", list(CATALOGO_VEHICULOS.keys()))
@@ -802,7 +902,6 @@ with tab_cotizador:
                 )
                 recargo_apertura_robo = 175.0 if "CERRADO" in estado_puertas_robo else 0.0
 
-                # Opciones según la tecnología real del vehículo (incluyendo 11va Gen Smart Key)
                 if modo_vehiculo == "SOLO_SMART_MOD":
                     opciones_robo = [
                         "Cambio de Combinación de Chapa + Borrado Electrónico de Llave Robada + Llave de Presencia (Smart Key) Nueva",
@@ -999,8 +1098,8 @@ with tab_cotizador:
             muni_sel = st.selectbox("Municipio Exacto:", list(DISTANCIAS_KM_ORIENTE[depto_sel].keys()))
         
         # Cálculo interno ida y vuelta desde San Luis Jilotepeque (oculto para el cliente)
-        km_ida = DISTANCIAS_KM_ORIENTE[depto_sel][muni_sel]
-        costo_traslado = float(km_ida * 2.0)
+        km_ida_vuelta = DISTANCIAS_KM_ORIENTE[depto_sel][muni_sel]
+        costo_traslado = float(km_ida_vuelta * MULTIPLICADOR_COMBUSTIBLE)
 
         if costo_traslado > 0:
             desglose_items.append((f"Servicio de Unidad Móvil a Domicilio ({muni_sel}, {depto_sel})", costo_traslado))
@@ -1023,6 +1122,7 @@ with tab_cotizador:
         with n1:
             nombre_cliente = st.text_input(
                 "👤 Tu Nombre (Máx. 35 letras):",
+                value="" if st.session_state.alias_usuario == "Invitado" else st.session_state.alias_usuario,
                 max_chars=35,
                 placeholder="Ej. Carlos Morales"
             )
@@ -1041,6 +1141,12 @@ with tab_cotizador:
         hora_str = hora_cita.strftime("%I:%M %p")
         tel_limpio = tel_cliente.strip().replace("-", "").replace(" ", "")
         telefono_valido = tel_limpio.isdigit() and len(tel_limpio) == 8
+
+        # Actualizar los datos del visitante en la lista de la Pestaña 4 cuando escribe su teléfono o nombre
+        if len(registro_app["clientes"]) > 0:
+            registro_app["clientes"][-1]["Nombre / Alias"] = nombre_cliente if nombre_cliente else st.session_state.alias_usuario
+            registro_app["clientes"][-1]["Teléfono"] = tel_limpio if telefono_valido else "Pendiente"
+            registro_app["clientes"][-1]["Vehículo / Consulta"] = f"{descripcion_vehiculo} ({muni_sel}) - Q{total_cotizacion:,.2f}"
 
         if alerta_tecnica == "ROJO":
             st.error("⚠️ **NOTA TÉCNICA IMPORTANTE:** Este modelo reciente (2020-2026) cuenta con seguridad encriptada avanzada. Envíanos tu cotización por WhatsApp para verificar código de programación antes de llegar.")
@@ -1065,7 +1171,7 @@ with tab_cotizador:
                 <h3 style="margin:0; color:#F97316;">🧾 COTIZACIÓN OFICIAL DESGLOSADA</h3>
                 <p style="margin:4px 0 0 0; font-size:13px; color:#94A3B8;">
                     <b>Cerrajería Automotriz Elías</b> | Tel/WhatsApp: +502 5191-6984<br>
-                    <b>Cliente:</b> {nombre_cliente if nombre_cliente else 'Pendiente'} | <b>Tel:</b> {tel_limpio if telefono_valido else '⚠️ Falta ingresar 8 dígitos'}<br>
+                    <b>Cliente:</b> {nombre_cliente if nombre_cliente else st.session_state.alias_usuario} | <b>Tel:</b> {tel_limpio if telefono_valido else '⚠️ Falta ingresar 8 dígitos'}<br>
                     <b>Vehículo/Bien:</b> {descripcion_vehiculo}{resumen_ficha_html}<br>
                     <b>Ubicación:</b> {muni_sel}, {depto_sel} ({direccion_exacta if direccion_exacta else 'Sin referencia'})<br>
                     <b>Cita solicitada:</b> {fecha_str} a las {hora_str}
@@ -1087,7 +1193,7 @@ with tab_cotizador:
         else:
             mensaje_wa = (
                 f"🔑 *NUEVA COTIZACIÓN Y CITA - CERRAJERÍA ELÍAS*\n\n"
-                f"👤 *Cliente:* {nombre_cliente if nombre_cliente else 'Cliente Web'}\n"
+                f"👤 *Cliente:* {nombre_cliente if nombre_cliente else st.session_state.alias_usuario}\n"
                 f"📱 *Teléfono:* +502 {tel_limpio}\n"
                 f"🚗 *Vehículo/Servicio:* {descripcion_vehiculo}\n"
                 f"{resumen_ficha_wa}"
@@ -1270,6 +1376,17 @@ with tab_admin:
         if st.button("💾 Guardar Cambios Manuales en Inventario"):
             st.session_state.inv_2027 = inv_editado
             st.success("Inventario actualizado.")
+
+        # ======================================================================
+        # CUADRO 3: BITÁCORA DE VISITAS Y USUARIOS EN PESTAÑA 4
+        # ======================================================================
+        st.write("---")
+        st.markdown(f"#### 👥 Registro de Visitas (Total: {registro_app['visitas']} visitas)")
+        if len(registro_app["clientes"]) > 0:
+            st.dataframe(pd.DataFrame(registro_app["clientes"]), use_container_width=True)
+        else:
+            st.info("Aún no se han registrado visitantes hoy.")
+
     elif pin_acceso != "":
         st.error("❌ Código incorrecto.")
     else:
